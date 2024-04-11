@@ -1,55 +1,74 @@
 version: '3.9'
 
 services:
-  asterisk1:
+  asterisk:
     build:
       context: ./asterisk
-      #args:
-      #  - db_url=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@database:5432/$POSTGRES_DB
-    #depends_on:
-    #  - database
+      args:
+        - db_url=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@database:5432/$POSTGRES_DB
+    depends_on:
+      - database
     volumes:
-      - ./asterisk/etc/asterisk1:/etc/asterisk
-    #  - ./asterisk/etc/odbc.ini:/etc/odbc.ini
-    #  - ./asterisk/etc/odbcinst.ini:/etc/odbcinst.ini
+      - ./asterisk/etc/asterisk:/etc/asterisk
+      - ./asterisk/etc/odbc.ini:/etc/odbc.ini
+      - ./asterisk/etc/odbcinst.ini:/etc/odbcinst.ini
     ports:
-    #  - 5038:5038
+      - 5038:5038
       - 5060:5060/UDP
       - 10000-10100:10000-10100/UDP
     networks:
       - net
 
-  asterisk2:
+  database:
     build:
-      context: ./asterisk
-      #args:
-      #  - db_url=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@database:5432/$POSTGRES_DB
-    #depends_on:
-    #  - database
-    volumes:
-      - ./asterisk/etc/asterisk2:/etc/asterisk
-    #  - ./asterisk/etc/odbc.ini:/etc/odbc.ini
-    #  - ./asterisk/etc/odbcinst.ini:/etc/odbcinst.ini
+      context: ./postgres
     expose:
-      - 5060/UDP
-      - 10000-10100/UDP
+      - 5432
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+      - POSTGRES_DB=$POSTGRES_DB
+      - DB_USER=$DB_USER
+      - DB_PASS=$DB_PASS
+    volumes:
+      - /database:/var/lib/postgresql/data
     networks:
       - net
 
-  asterisk3:
+  nginx:
     build:
-      context: ./asterisk
-      #args:
-      #  - db_url=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@database:5432/$POSTGRES_DB
-    #depends_on:
-    #  - database
-    volumes:
-      - ./asterisk/etc/asterisk3:/etc/asterisk
-    #  - ./asterisk/etc/odbc.ini:/etc/odbc.ini
-    #  - ./asterisk/etc/odbcinst.ini:/etc/odbcinst.ini
+      context: ./nginx
+    ports:
+      - 443:443
+    depends_on:
+      - fastapi
+    networks:
+      - net
+
+  fastapi:
+    build:
+      context: ./fastapi
+    ports:
+      - 8080:8080
+    expose:
+      - 8080
+    depends_on:
+      - database
+    networks:
+      - net
+
+  kamailio:
+    build:
+      context: ./kamailio
     expose:
       - 5060/UDP
-      - 10000-10100/UDP
+    ports:
+      - 5061:5061/TCP
+    depends_on:
+      - asterisk
+      - database
     networks:
       - net
 
